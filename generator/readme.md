@@ -1,0 +1,2 @@
+The C++ program runs much more faster then the javascript (html) one.
+So if possible, please use the C++ program, and then copy the codes to the "printer" html (in another directory) to make the image.

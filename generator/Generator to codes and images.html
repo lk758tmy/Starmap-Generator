@@ -1,0 +1,229 @@
+<html>
+<head><title>Starmaps_Generator</title></head>
+<body>
+    <b>Starmaps Generator</b> Version: 2023-06-03<br>
+    It may take a few minutes to run.
+    <button type="button" id="button">RUN</button><br>
+    You could save the "codes" of this starmap by pressing F12 and get them from the console. 
+    Then you'll be able to paste it in the "printer" to restore the image.
+    <!--<p id="codes"></p>-->
+    <canvas id="canvas" width="800" height="800"></canvas>
+    <script>
+        //An adaption from C++ to JS. See the C++ code for the comments.
+        var starmap=[],A=[],B=[],C=[],starX=[],starY=[],stars=[],relocate=[];
+        var dX=[0,0,-1,-1,1,1],dY=[-1,1,0,1,-1,0];
+        for(var i=0;i<34;i++){
+            A.push(0); B.push(0); C.push(0); starmap.push([]);
+            for(var j=0;j<34;j++) starmap[i].push(2);
+        }
+        for(var i=0;i<64;i++){
+            starX.push(0); starY.push(0); stars.push(0);
+        }
+        var canvas=document.getElementById("canvas");
+        var ctx=canvas.getContext("2d");
+
+        function _initialize(){
+            var a,b;
+            for(var i=1;i<33;i++){
+                A[i]=0; B[i]=0; C[i]=0;
+                a=(17-i>1)?(17-i):1; b=(49-i<33)?(49-i):33;
+                for(var j=a;j<b;j++) starmap[i][j]=0;
+            }
+            return ;
+        }
+
+        function _track(x,y){
+            var starId=0,tx,ty,flag;
+            for(var i=0;i<6;i++){
+                flag=false; tx=x; ty=y;
+                while(1){
+                    tx+=dX[i]; ty+=dY[i];
+                    if(starmap[tx][ty]==2) break;
+                    if(starmap[tx][ty]==1){
+                        flag=true; break;
+                    }
+                }
+                if(flag==true) starId+=(1<<i);
+            }
+            return starId;
+        }
+        function _check(){
+            var starId,cnt=0;
+            for(var i=0;i<64;i++) stars[i]=0;
+            for(var i=0;i<64;i++){
+                starId=_track(starX[i],starY[i]);
+                if(stars[starId]==0){
+                    stars[starId]=1; cnt++;
+                }
+            }
+            return cnt;
+        }
+        function _findRelocate(){
+            var starId;
+            relocate=[];
+            for(var i=0;i<64;i++) stars[i]=-1;
+            for(var i=0;i<64;i++){
+                starId=_track(starX[i],starY[i]);
+                if(stars[starId]!=-1){
+			        relocate.push(starId);
+			        if(stars[starId]>-1){
+				        relocate.push(stars[starId]); stars[starId]=-2;
+			        }
+                }else stars[starId]=i;
+            }
+            return ;
+        }
+
+        function _addStar(x,y,cnt){
+            starX[cnt]=x; starY[cnt]=y; starmap[x][y]=1;
+            A[x]++; B[y]++; C[x+y-16]++;
+            return ;
+        }
+        function _randSetup(){
+            var cnt=0,x,y;
+            for(x=1;x<33;x++){
+                do{
+                    y=Math.floor(Math.random()*32)+1;
+                }while(starmap[x][y]!=0);
+                _addStar(x,y,cnt); cnt++;
+            }
+            for(y=1;y<33;y++){
+                if(B[y]>0) continue;
+                do{
+                    x=Math.floor(Math.random()*32)+1;
+                }while(starmap[x][y]!=0);
+                _addStar(x,y,cnt); cnt++;
+            }
+            for(var z=1;z<33;z++){
+                if(C[z]>0) continue;
+                if(cnt==64) return -1;
+                do{
+                    x=Math.floor(Math.random()*32)+1; y=z+16-x;
+                }while(y<1||y>32||starmap[x][y]!=0);
+                _addStar(x,y,cnt); cnt++;
+            }
+            while(cnt<64){
+                x=Math.floor(Math.random()*32)+1; y=Math.floor(Math.random()*32)+1;
+                if(starmap[x][y]==0){
+                    _addStar(x,y,cnt); cnt++;
+                }
+            }
+            return _check();
+        }
+
+        function _necessary(x,y){
+            if(A[x]==0||B[y]==0||C[x+y-16]==0) return false;	
+	        return true;
+        }
+        function _changeBoard(id,ex,ey){
+            A[starX[id]]--; B[starY[id]]--; C[starX[id]+starY[id]-16]--;
+	        A[ex]++; B[ey]++; C[ex+ey-16]++;	
+	        starmap[starX[id]][starY[id]]=0; starmap[ex][ey]=1;
+	        starX[id]=ex; starY[id]=ey;
+	        return ;
+        }
+        function _randMove(height){
+            var new_height,id=[0,0],sx=[0,0],sy=[0,0],ex=[0,0],ey=[0,0];
+            id[0]=relocate[Math.floor(Math.random()*relocate.length)];
+            id[1]=Math.floor(Math.random()*63);
+            if(id[1]==id[0]) id[1]++;
+            for(var i=0;i<2;i++){
+                sx[i]=starX[id[i]]; sy[i]=starY[id[i]];
+                do{
+			        ex[i]=Math.floor(Math.random()*32)+1; ey[i]=Math.floor(Math.random()*32)+1;
+		        }while(starmap[ex[i]][ey[i]]!=0);
+		        _changeBoard(id[i],ex[i],ey[i]);
+            }
+            if(_necessary(sx[0],sy[0])&&_necessary(sx[1],sy[1])){
+                new_height=_check();
+                if(new_height<height||(new_height==height&&height<59))
+		            for(var i=1;i>-1;i--) _changeBoard(id[i],sx[i],sy[i]);
+                return new_height;
+            }else{
+                for(var i=1;i>-1;i--) _changeBoard(id[i],sx[i],sy[i]);
+                return -1;
+            }
+        }
+
+        function _tryOnce(){
+            var height,new_height;
+            do{
+                _initialize();
+                height=_randSetup();
+            }while(height<49);
+            var cnt1,cnt2=0;
+            do{
+                _findRelocate();
+                for(cnt1=0;cnt1<10000000;cnt1++){
+                    new_height=_randMove(height);
+                    if(new_height>height||(height>=59&&new_height==height)){
+                        height=new_height;
+                        //console.log(height);
+                        if(height==64) return true;
+                        cnt2++; break;
+                    }
+                }
+                if(cnt1==10000000) return false;
+            }while(cnt2<500)
+            return false;
+        }
+
+        var sideLength=40/Math.sqrt(3);
+        function _transCoordY(x,y){
+            return sideLength*(y-8)+sideLength*(x-1)/2;
+        }
+        function _print(){
+            var tx,ty,a,b;
+            ctx.clearRect(0, 0, 800, 800);
+            ctx.lineWidth=1; ctx.strokeStyle="#3f3f3f";
+            ctx.beginPath();
+            for(var i=1;i<33;i++){
+                a=(17-i>1)?(17-i):1; b=(49-i<33)?(49-i):33;
+                for(var j=a;j<b;j++){
+                    for(var k=0;k<6;k++){
+                        tx=i+dX[k]; ty=j+dY[k];
+                        if(starmap[tx][ty]==2) continue;
+                        ctx.moveTo(_transCoordY(i,j),i*20);
+                        ctx.lineTo(_transCoordY(tx,ty),tx*20);                  
+            }}}
+            ctx.stroke();
+            ctx.lineWidth=3; ctx.strokeStyle="#1f1fdf";
+            ctx.beginPath();
+            for(var i=0;i<64;i++){
+                for(var j=0;j<6;j++){
+                    tx=starX[i]; ty=starY[i];
+                    ctx.moveTo(_transCoordY(tx,ty),tx*20);
+		            while(1){
+			            tx+=dX[j]; ty+=dY[j];
+			            if(starmap[tx][ty]==2) break;
+			            if(starmap[tx][ty]==1){
+                            ctx.lineTo(_transCoordY(tx,ty),tx*20); break;
+			}}}}
+            ctx.stroke();
+            ctx.lineWidth=3; ctx.fillStyle="#ffff00";
+            for(var i=0;i<64;i++){
+                ctx.beginPath();
+                ctx.arc(_transCoordY(starX[i],starY[i]),starX[i]*20,7,0,2*Math.PI);
+                ctx.fill(); ctx.stroke();
+            }            
+        }
+
+        function _output(){
+            var code="";
+            for(var i=0;i<64;i++)
+                code=code+String.fromCharCode(starX[i]+48)+String.fromCharCode(starY[i]+48);
+            console.log(code);
+            //document.getElementById("codes").innerHTML=code;
+            return code;
+        }
+
+        var btn = document.getElementById("button");  
+        btn.onclick=function(){ 
+            while(_tryOnce()==false){
+                ;
+            }
+            _print(); _output();
+        }
+    </script>
+</body>
+</html>
