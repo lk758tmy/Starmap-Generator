@@ -1,0 +1,1 @@
+The C++ program runs much more faster then the javascript one, so please use C++ if possible.
